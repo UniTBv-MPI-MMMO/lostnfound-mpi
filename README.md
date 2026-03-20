@@ -12,14 +12,14 @@ Aplicația rezolvă problema pierderii obiectelor personale în mediul universit
 | Nume Student | Rol Principal | GitHub Username |
 |--------------|---------------|-----------------|
 | Menyhárt Loránd | QA| @lorandme       |
-| TBD    | Backend       | TBD       |
-| TBD   | Frontend      | TBD      |
+| Mocanu Emanuel-Andrei    | Backend       | @mocanuEmanuel       |
+| Mocanu Andreea   | Frontend      | @andreeamoc      |
 | Oprea Maria-Isabel    | DevOps        | @isabeloprea       |
 
 # 3. Arhitectură și Tehnologii
 - **Backend:** Python FastAPI
 - **Database:** PostgreSQL
-- **Frontend:** TBD
+- **Frontend:** React
 - **Infrastructure:** Docker & GitHub Actions
 
 # 4. Setup Local
