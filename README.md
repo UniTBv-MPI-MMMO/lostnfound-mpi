@@ -14,7 +14,7 @@ Aplicația rezolvă problema pierderii obiectelor personale în mediul universit
 | Menyhárt Loránd | QA| @lorandme       |
 | Mocanu Emanuel-Andrei    | Backend       | @mocanuEmanuel       |
 | Mocanu Andreea   | Frontend      | @andreeamoc      |
-| Oprea Maria-Isabel    | DevOps        | @isabeloprea       |
+| Oprea Maria-Isabel    | DevOps        | @isaoprea       |
 
 # 3. Arhitectură și Tehnologii
 - **Backend:** Python FastAPI
