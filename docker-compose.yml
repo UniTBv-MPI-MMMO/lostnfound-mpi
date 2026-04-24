@@ -7,9 +7,10 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: app_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data 
+      - postgres_data:/var/lib/postgresql/data
+      - ./Backend/db-init:/docker-entrypoint-initdb.d:ro
   backend:
-    build: ./backend
+    build: ./Backend
     ports:
       - "8000:8000"
     environment:
@@ -17,7 +18,7 @@ services:
     depends_on:
       - db
     volumes:
-      - ./backend:/app 
+      - ./Backend:/app
 
 volumes:
   postgres_data:
