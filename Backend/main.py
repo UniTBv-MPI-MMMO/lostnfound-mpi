@@ -1,10 +1,11 @@
 import os
-from fastapi import FastAPI, Response, status, Depends
+from fastapi import FastAPI, Response, status, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from fastapi.middleware.cors import CORSMiddleware
 
 # DATABASE CONFIGURATION
 # Fetch the URL from docker-compose (environment variable)
@@ -26,7 +27,7 @@ class DBItem(Base):
     description = Column(String, nullable=True)
     category = Column(String, nullable=True)
     location = Column(String, nullable=True)
-    status = Column(String, default="found")
+    status = Column(String, default="found") # e.g., 'lost', 'found', 'resolved'
     contact_info = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -39,6 +40,9 @@ class ItemCreate(BaseModel):
     status: Optional[str] = "found"  # Set default to "found" to match DB
     contact_info: Optional[str] = None
 
+class ItemUpdate(BaseModel):
+    status: str
+
 class Item(ItemCreate):
     id: int
     created_at: datetime
@@ -48,6 +52,14 @@ class Item(ItemCreate):
 
 # FASTAPI APP
 app = FastAPI()
+# Configure CORS so the frontend can connect to this API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods 
+    allow_headers=["*"],  # Allows all headers
+)
 
 # "Dependency" function that opens and closes the DB connection for each request
 def get_db():
@@ -65,7 +77,6 @@ def read_root():
 def create_item(item: ItemCreate, response: Response, db: Session = Depends(get_db)):
     """Create a new found item and save it to PostgreSQL."""
     
-    # Create the database object and map the new fields
     new_db_item = DBItem(
         title=item.title,
         description=item.description,
@@ -75,14 +86,50 @@ def create_item(item: ItemCreate, response: Response, db: Session = Depends(get_
         contact_info=item.contact_info
     )
     
-    # Insert it and save the changes
     db.add(new_db_item)
     db.commit()
-    
-    # Refresh the object to get the Postgres-generated ID
     db.refresh(new_db_item) 
     
-    # Set the Location header (best practice for REST)
     response.headers["Location"] = f"/items/{new_db_item.id}"
-    
     return new_db_item
+
+@app.get("/items", response_model=List[Item])
+def get_items(status: Optional[str] = None, db: Session = Depends(get_db)):
+    """Retrieve all items. Optionally filter by status (e.g., lost, found)."""
+    
+    # Start building the query
+    query = db.query(DBItem)
+    
+    # Apply filter if the 'status' query parameter is provided
+    if status:
+        query = query.filter(DBItem.status == status)
+        
+    return query.all()
+
+@app.get("/items/{item_id}", response_model=Item)
+def get_item(item_id: int, db: Session = Depends(get_db)):
+    """Retrieve details for a single item by its ID."""
+    
+    item = db.query(DBItem).filter(DBItem.id == item_id).first()
+    
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+        
+    return item
+
+@app.patch("/items/{item_id}", response_model=Item)
+def update_item_status(item_id: int, item_update: ItemUpdate, db: Session = Depends(get_db)):
+    """Update the status of a specific item."""
+    
+    item = db.query(DBItem).filter(DBItem.id == item_id).first()
+    
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+        
+    # Update the status field
+    item.status = item_update.status
+    
+    db.commit()
+    db.refresh(item)
+    
+    return item
