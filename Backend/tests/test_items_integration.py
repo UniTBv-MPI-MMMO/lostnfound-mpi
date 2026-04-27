@@ -111,3 +111,100 @@ async def test_root_endpoint_confirms_service_is_available(async_client: AsyncCl
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_get_items_returns_persisted_items_and_supports_status_filter(async_client: AsyncClient):
+    """Business requirement: the frontend must be able to list items and filter them by status."""
+    await async_client.post(
+        "/items",
+        json={
+            "title": "Geanta neagra",
+            "description": "Gasita in biblioteca",
+            "status": "found",
+        },
+    )
+    await async_client.post(
+        "/items",
+        json={
+            "title": "Portofel verde",
+            "description": "Raportat ca pierdut",
+            "status": "lost",
+        },
+    )
+
+    all_items_response = await async_client.get("/items")
+    assert all_items_response.status_code == 200
+
+    all_items = all_items_response.json()
+    assert len(all_items) == 2
+    assert {item["title"] for item in all_items} == {"Geanta neagra", "Portofel verde"}
+
+    filtered_response = await async_client.get("/items", params={"status": "lost"})
+    assert filtered_response.status_code == 200
+
+    filtered_items = filtered_response.json()
+    assert len(filtered_items) == 1
+    assert filtered_items[0]["title"] == "Portofel verde"
+    assert filtered_items[0]["status"] == "lost"
+
+
+@pytest.mark.asyncio
+async def test_get_item_by_id_returns_single_item(async_client: AsyncClient):
+    """Business requirement: users must be able to open the details page for a single item."""
+    create_response = await async_client.post(
+        "/items",
+        json={
+            "title": "Caiet albastru",
+            "description": "Gasit in sala de curs",
+            "status": "found",
+        },
+    )
+    item_id = create_response.json()["id"]
+
+    response = await async_client.get(f"/items/{item_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == item_id
+    assert body["title"] == "Caiet albastru"
+    assert body["status"] == "found"
+
+
+@pytest.mark.asyncio
+async def test_get_item_by_id_returns_404_for_missing_item(async_client: AsyncClient):
+    """Business requirement: invalid item references must return a not-found error."""
+    response = await async_client.get("/items/999999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Item not found"
+
+
+@pytest.mark.asyncio
+async def test_update_item_status_persists_new_status(async_client: AsyncClient):
+    """Business requirement: the item lifecycle must allow status updates after matching an item."""
+    create_response = await async_client.post(
+        "/items",
+        json={
+            "title": "Chei bicicleta",
+            "description": "Gasite langa camin",
+            "status": "found",
+        },
+    )
+    item_id = create_response.json()["id"]
+
+    response = await async_client.patch(f"/items/{item_id}", json={"status": "resolved"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == item_id
+    assert body["status"] == "resolved"
+
+
+@pytest.mark.asyncio
+async def test_update_item_status_returns_404_for_missing_item(async_client: AsyncClient):
+    """Business requirement: the backend must reject updates for items that do not exist."""
+    response = await async_client.patch("/items/999999", json={"status": "resolved"})
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Item not found"
